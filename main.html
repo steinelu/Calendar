@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>Calendar</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <!--link rel='stylesheet' type='text/css' media='screen' href='main.css'-->
+    <style>
+        #template {
+            display: none;
+        }
+
+        .calendar {
+            display: flex;
+        }
+
+
+    </style>
+    <script>
+
+
+       /* window.addEventListener('load', function () {
+            var cal = document.getElementById("main")
+            
+            week = cal.getElementsByClassName("week")[0]
+            console.log(week)
+            
+            for(let c = 2; c < 6; c++){
+                clone = week.cloneNode(true)
+                kw = clone.getElementsByClassName("kw")[0]
+                kw.innerHTML = "0" + c
+
+                cal.append(clone)
+            }
+
+            document.getElementById("cal").scrollTo(1000, 0);
+        })*/
+
+        function generateWeekDatesByDate(date) {
+            var weekdays = [new Date(date), new Date(date), new Date(date), new Date(date), new Date(date), new Date(date), new Date(date)]
+
+            for (i in weekdays) {
+                day = date.getDay() != 0 ? date.getDay() : 7
+                weekdays[i].setDate(weekdays[i].getDate() + (i - day) +1)
+
+            }
+
+            return weekdays//.reverse()
+        }
+
+        function getDateId(date){
+            return `${1900 + date.getYear()}${(date.getMonth() + 1).toString().padStart(2, "0")}${date.getDate().toString().padStart(2, "0")}`
+        }
+
+        function retrieveAndInsertAppointmentsByDateIdIntoInput(id, input) {
+            tnx = db.transaction(["appointments"], "readwrite")
+            tnx.onerror = (event) => {console.log(event.target.error)}
+
+            store = tnx.objectStore("appointments")
+            index = store.index("dateIndex")
+            resp = index.get(id)
+
+            resp.onsuccess = (event) => {
+                res = event.target.result
+
+                if (res != undefined) {
+                    input.id = res.dateid
+                    input.value = res.value
+                    dayelem = document.getElementById(id)
+                    dayelem.children[0].insertAdjacentElement("afterend", input);
+                }
+            };
+
+            resp.onerror = (event) => {
+                console.error("Cursor error:", event.target.error);
+            };
+        }
+
+        function createAndPopulateWeekByDate(date) {
+            var week = document.getElementById("template").cloneNode(true)
+            var weekdays = generateWeekDatesByDate(date)
+            //console.table(weekdays)
+            
+            for(i in weekdays) {
+                dayelem = week.getElementsByClassName("day")[i]
+                //dayelem = week.children[i]
+
+                dayelem.children[0].innerHTML = weekdays[i].getDate()
+                dayelem.id = getDateId(weekdays[i])
+
+                input = document.createElement("input")
+                retrieveAndInsertAppointmentsByDateIdIntoInput(dayelem.id, input)
+                
+            }
+            return week
+        }
+
+        function createAndPopulateWeekByOffset(offset, append) {
+            day = new Date(today)
+            day.setDate(day.getDate() + (offset * 7))
+            
+            week = createAndPopulateWeekByDate(day)
+            week.id = offset
+            
+            if (append == true) {
+                cal.append(week)
+            } else {
+                cal.prepend(week)
+            }
+        }
+
+
+        var weekoffset = 0
+        //var today = new Date("August 4, 1975 23:15:30");
+        var today = new Date()
+        var db = undefined
+
+        window.addEventListener("load", function() {
+
+            dbor = window.indexedDB.open("calendar", 1)
+            dbor.onerror = (event) => {
+                alert("Something went wrong with openeing the IndexedDB." + event.target.error?.message)
+            }
+
+            dbor.onupgradeneeded = (event) => {
+                idb = event.target.result
+                odb = idb.createObjectStore("appointments", { autoIncrement: true })
+
+                odb.createIndex("dateIndex", "dateid", { unique: false });
+            }
+
+            dbor.onsuccess = (event) => {
+                db = event.target.result
+
+                createAndPopulateWeekByOffset(weekoffset, true)
+                createAndPopulateWeekByOffset(weekoffset -1, false)
+                createAndPopulateWeekByOffset(1, true)
+            }
+
+            
+        })
+
+
+        function next() {
+            weekoffset += 1
+            createAndPopulateWeekByOffset(weekoffset +1, true)
+            document.getElementById("cal").children[0].remove()
+        }
+
+        function prev() {
+            weekoffset -= 1
+            createAndPopulateWeekByOffset(weekoffset-1, false)
+            cal = document.getElementById("cal")
+            cal.children[cal.children.length-1].remove()
+        }
+
+        addEventListener("mousedown", (event) => {
+            var elem = document.elementsFromPoint(event.clientX, event.clientY)
+            console.log(elem)
+        });
+
+        
+
+        function saveInput(dateid, value){
+            
+        }
+
+        //const input = document.querySelector("input");
+        addEventListener("input", (event) => {
+
+            tnx = db.transaction(["appointments"], "readwrite")
+            tnx.onerror = (event) => {console.log(event.target.error)}
+
+            item = {
+                dateid: event.srcElement.parentElement.id,
+                value: event.srcElement.value,
+                index: 0
+            }
+
+            store = tnx.objectStore("appointments")
+            
+            if (event.srcElement.id == ""){
+                resp = store.add(item)
+
+                resp.onsuccess = function(event_) {
+                    console.log(resp)
+                    event.srcElement.id = resp.result
+                    event.srcElement.parentElement.appendChild(document.createElement("input"))
+                }
+            } else {
+                var r = parseInt(event.srcElement.id)
+                tnx.objectStore("appointments").put(item, r)
+            }
+        })
+
+    </script>
+</head>
+<body>
+    <div class="container" >
+        <div class="calendar" id="cal">
+        </div>
+        <div class="week" id="template">
+            <div class="day">
+                <span class="daynr">1</span>
+                <input/>
+            </div>
+            <br/>
+            <div class="day">
+                <span class="daynr">2</span>
+                <input/>
+            </div>
+            <br/>
+            <div class="day">
+                <span class="daynr">3</span>
+                <input/>
+            </div>
+            <br/>
+            <div class="day">
+                <span class="daynr">4</span>
+                <input/>
+            </div>
+            <br/>
+            <div class="day">
+                <span class="daynr">5</span>
+                <input/>
+            </div>
+            <br/>
+            <div class="day">
+                <span class="daynr">6</span>
+                <input/>
+            </div>
+            <br/>
+            <div class="day">
+                <span class="daynr">7</span>
+                <input/>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
