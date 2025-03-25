@@ -7,27 +7,39 @@
     <meta name='viewport' content='width=device-width, initial-scale=1'>
     <!--link rel='stylesheet' type='text/css' media='screen' href='main.css'-->
     <style>
+        * {
+            font-size: large;
+        }
+
         .container {
             display: flex;
             flex-direction: column;
-            align-items: stretch;
+            align-items: center;
+            justify-content: center;
+
         }
 
         .calendar {
-            --background-color: lightgray;
+            background-color: lightgray;
             display: flex;
             
             align-items: stretch;
+            min-width: 100vw;
+        }
+
+        @media (min-width: 600px) {
+            .calendar{
+                min-width: 30rem;
+            }
         }
 
         .week {
-            --background-color: lightgoldenrodyellow;
+            background-color: lightgoldenrodyellow;
             flex: 1;
         }
 
         .day {
-            --background-color: lightcyan;
-            
+            background-color: lightcyan;
         }
 
         .appointments{
@@ -376,13 +388,21 @@ class LocalDB {
 
             next() {
                 this.weekoffset += 1
-                this.createAndPopulateWeekByOffset(this.weekoffset+ this.debug?1:0 , true)
+                if (this.debug){
+                    this.createAndPopulateWeekByOffset(this.weekoffset + 1 , true)
+                } else {
+                    this.createAndPopulateWeekByOffset(this.weekoffset , true)
+                }
                 document.getElementById("cal").children[0].remove()
             }
 
             prev() {
                 this.weekoffset -= 1
-                this.createAndPopulateWeekByOffset(this.weekoffset- this.debug?1:0, false)
+                if (this.debug){
+                    this.createAndPopulateWeekByOffset(this.weekoffset - 1 , false)
+                } else {
+                    this.createAndPopulateWeekByOffset(this.weekoffset , false)
+                }
                 let cal = document.getElementById("cal")
                 cal.children[cal.children.length-1].remove()
             }
@@ -443,6 +463,9 @@ class LocalDB {
             }
             //console.log("blur", event.target.tagName)
         })
+        
+
+        /*  Drag and drop */
 
 
         var draggingElement = undefined
@@ -499,6 +522,29 @@ class LocalDB {
         addEventListener("mousedown", (event) => {
             var elem = document.elementsFromPoint(event.clientX, event.clientY)
             //console.log(elem)
+        })
+        
+
+        /* Touch swipping */
+
+        let startX = undefined
+
+        addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX
+        })
+
+        addEventListener('touchend', (e) => {
+            const endX = e.changedTouches[0].clientX
+            const swipeThreshold = 50
+
+            if (endX - startX > swipeThreshold) {
+                calendar.prev()
+            } else if (startX - endX > swipeThreshold) {
+                calendar.next()
+            } else {
+                //alert('Swipe too short!');
+            }
+            startX=undefined
         })
 
     </script>
