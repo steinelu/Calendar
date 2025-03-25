@@ -7,17 +7,38 @@
     <meta name='viewport' content='width=device-width, initial-scale=1'>
     <!--link rel='stylesheet' type='text/css' media='screen' href='main.css'-->
     <style>
-        #template {
-            display: none;
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
         }
 
         .calendar {
+            --background-color: lightgray;
             display: flex;
+            
+            align-items: stretch;
+        }
+
+        .week {
+            --background-color: lightgoldenrodyellow;
+            flex: 1;
+        }
+
+        .day {
+            --background-color: lightcyan;
+            
+        }
+
+        .appointments{
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
         }
 
         textarea {
-            flex: 1;
             resize: none;
+            field-sizing: content;
         }
 
     </style>
@@ -193,12 +214,14 @@ class LocalDB {
             db
             weekoffset
             day
+            debug 
             
-            constructor (today) {
+            constructor (today, debug=false) {
                 this.db = new LocalDB()
 
                 this.day = today
                 this.weekoffset = 0
+                this.debug = debug
             }
 
             async onLoad() {
@@ -209,8 +232,10 @@ class LocalDB {
 
             setup() {
                 this.createAndPopulateWeekByOffset(this.weekoffset, true)
-                this.createAndPopulateWeekByOffset(this.weekoffset -1, false)
-                this.createAndPopulateWeekByOffset(this.weekoffset +1, true)
+                if (this.debug){
+                    this.createAndPopulateWeekByOffset(this.weekoffset -1, false)
+                    this.createAndPopulateWeekByOffset(this.weekoffset +1, true)
+                }
             }
             
             createAndPopulateWeekByOffset(offset, append) {
@@ -351,13 +376,13 @@ class LocalDB {
 
             next() {
                 this.weekoffset += 1
-                this.createAndPopulateWeekByOffset(this.weekoffset+1, true)
+                this.createAndPopulateWeekByOffset(this.weekoffset+ this.debug?1:0 , true)
                 document.getElementById("cal").children[0].remove()
             }
 
             prev() {
                 this.weekoffset -= 1
-                this.createAndPopulateWeekByOffset(this.weekoffset-1, false)
+                this.createAndPopulateWeekByOffset(this.weekoffset- this.debug?1:0, false)
                 let cal = document.getElementById("cal")
                 cal.children[cal.children.length-1].remove()
             }
@@ -369,13 +394,13 @@ class LocalDB {
         //var today = new Date("August 4, 1975 23:15:30");
         //var today = new Date()
         //var db = undefined
-        var calendar = new Calendar(new Date());
+        var calendar = new Calendar(new Date(), false);
 
         window.addEventListener("load", function() {
             //var today = new Date("August 4, 1975 23:15:30");
-            const today = new Date(); // <- this semicolon is needed -.-
+            const today = new Date() 
 
-            (async () => {
+            ;(async () => {
                 calendar.onLoad()
             })()
         })
@@ -448,9 +473,10 @@ class LocalDB {
         })
 
         addEventListener("dragend", (event) => {
-            if (draggingElement.id == ""){return}
 
             event.target.style.opacity = ""
+            if (draggingElement.id == ""){return}
+
             
             ;(async () => {
                 await calendar.deleteAppointment(draggingStart.parentNode.id, event.target.id)
@@ -472,7 +498,7 @@ class LocalDB {
 
         addEventListener("mousedown", (event) => {
             var elem = document.elementsFromPoint(event.clientX, event.clientY)
-            console.log(elem)
+            //console.log(elem)
         })
 
     </script>
