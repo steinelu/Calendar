@@ -20,7 +20,7 @@
         }
 
         .calendar {
-            background-color: lightgray;
+            --background-color: lightgray;
             display: flex;
             
             align-items: stretch;
@@ -34,18 +34,28 @@
         }
 
         .week {
-            background-color: lightgoldenrodyellow;
+            --background-color: lightgoldenrodyellow;
             flex: 1;
         }
 
         .day {
-            background-color: lightcyan;
+            border-radius: 3px;
+            --background-color: lightcyan;
+
+            margin: 0.3em;
+        }
+
+        .day.today {
+            --outline: solid;
+            --outline-color: lightblue;
+            background-color: rgb(225, 248, 255);
         }
 
         .appointments{
             display: flex;
             flex-direction: column;
             align-items: stretch;
+            --padding-bottom: 0.3em;
         }
 
         textarea {
@@ -54,15 +64,29 @@
         }
 
         .disp {
-            display: flex;
+            --display: flex;
             --align-items: flex-start;
-            justify-content: space-between;
+            --justify-content: space-between;
+
             font-family: monospace;
+            padding-top: 0.4em;
+            padding-bottom: 0.1em;
+            padding-left: 0.4em;
         }
         
 
         .monthname {
-            color: #a0a0a0;
+            color: #555555;
+            float: right;
+        }
+
+        .weekdayname{
+            color: #555555;
+            margin-right: 0.3em;
+        }
+
+        .daynr{
+            color:black;
         }
 
 
@@ -299,6 +323,12 @@ const wedays = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"]
                         day.id = this.getDateId(weekdays[i])
                         await this.retrieveAndInsertAppointmentsByDateIdIntoInput(day)
                         week.append(day)
+                        
+                        //console.log(this.day, weekdays[i])
+                        if(this.getDateId(this.day) == this.getDateId(weekdays[i])){
+                            //console.log("-------")
+                            day.classList.add("today")
+                        }
                         //promises.push(p)
                     }
                 })()
@@ -331,8 +361,9 @@ const wedays = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"]
                 dnr.className = "daynr"
                 disp.append(dnr)
 
+                // WIP
                 let mon = document.createElement("span")
-                mon.innerText = "___"
+                //mon.innerText = "___"
                 if (date.getDate() == 1 || date.getDay() == 1){
                     mon.innerText = months[date.getMonth()]
                 }
@@ -562,8 +593,8 @@ const wedays = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"]
             //console.log(elem)
         })
         
-
-        /* Touch swipping */
+        /*  Controls  */
+        /*  Touch swipping */
 
         let startX = undefined
 
@@ -585,6 +616,8 @@ const wedays = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"]
             startX=undefined
         })
 
+
+        /* Keyboard arrows */
 
         addEventListener("keyup", (event) => {
             switch (event.key) {
