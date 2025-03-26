@@ -16,8 +16,7 @@ features
 
 Todo
 - Bugs
-    - too fast typing on empty elements, spanws new input element with partially inserted entries inside the db
-    - buggy speachrec. insert 
+    -
 - sync -> REST API API -> settings with what to execute on _______
     - choose your own backend
 - share

@@ -411,9 +411,6 @@ class LocalDB {
             }
         }
 
-        //var today = new Date("August 4, 1975 23:15:30");
-        //var today = new Date()
-        //var db = undefined
         var calendar = new Calendar(new Date(), false);
 
         window.addEventListener("load", function() {
@@ -424,8 +421,20 @@ class LocalDB {
                 calendar.onLoad()
             })()
         })
+        
+        
+        /*  Input stuff  */
+        addEventListener("focusin", (event)=>{
+            ;(async () =>{
+                if (event.target.id == ""){
+                    let noteid = await calendar.db.generateAppointmentId()
+                    event.target.id = noteid
+                    calendar.addInputElement(event.target.parentNode.parentNode)
+                }
+            })()
+        })
+        
 
-        //const input = document.querySelector("input");
         addEventListener("input", (event) => {
             let parent = event.target.parentElement.parentNode
             let apps = event.target.parent
@@ -436,32 +445,23 @@ class LocalDB {
             pos = pos.indexOf(event.target.id)
             
             ;(async () =>{
-                if (event.target.id == ""){
-                    // freshly inserted
-                    calendar.addInputElement(parent)
-                    let noteid = await calendar.db.generateAppointmentId()
-                    event.target.id = noteid
-                    calendar.insertAppointment(dateid, noteid, pos, content)
+                if (event.target.value == "") {
+                    // deleted
+                    let noteid = parseInt(event.target.id)
+                    calendar.deleteAppointment(dateid, noteid)
                 } else {
-                    if (event.target.value == "") {
-                        // deleted
-                        let noteid = parseInt(event.target.id)
-                        calendar.deleteAppointment(dateid, noteid)
-                    } else {
-                        // changes
-                        let noteid = parseInt(event.target.id)
-                        calendar.updateAppointment(dateid, noteid, pos, content)
-                    }
+                    // changes
+                    let noteid = parseInt(event.target.id)
+                    calendar.updateAppointment(dateid, noteid, pos, content)
                 }
+                
             })()
         })
 
         addEventListener("focusout", (event) => {
             if (event.target.tagName == "TEXTAREA" && event.target.id != "" && event.target.value == ""){
-                //console.log("inputthingy", event.target)
-                event.srcEtargetlement.remove()
+                event.target.remove()
             }
-            //console.log("blur", event.target.tagName)
         })
         
 
