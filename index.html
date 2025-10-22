@@ -115,12 +115,16 @@
 
     <template id="template-input">
         <style>
+            div {
+                padding-right: 0.7em;
+            }
+
             textarea {
                 resize:none;
                 field-sizing:content;
-                width:97%;
-
-                padding: 0.4em;
+                width:100%;
+                --box-sizing: border-box;
+                
                 margin-top: 0.1em;
                 margin-left: 0.2em;
             }
