@@ -3,7 +3,7 @@
     "name": "Calendar",
     "short_name": "Cal",
     "description": "A small and simple Calendar webapp",
-    "start_url": "/",
+    "start_url": "/Calendar",
     "background_color": "#2f3d58",
     "theme_color": "#2f3d58",
     "orientation": "any",
