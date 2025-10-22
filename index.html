@@ -3,42 +3,147 @@
 <head>
     <meta charset='utf-8'>
     <meta http-equiv='X-UA-Compatible' content='IE=edge'>
-    <title>SteineLu Calendar</title>
+    <title>SteineLu Caawait fetchlendar</title>
+    <link rel="icon" type="image/x-icon" href="favicon.svg">
     <meta name='viewport' content='width=device-width, initial-scale=1'>
     <!--link rel='stylesheet' type='text/css' media='screen' href='main.css'-->
     <script src='main.js' defer></script>
+    <!--link rel="manifest" href="/manifest.json"-->
+    <script>
+    //if('serviceWorker' in navigator) {
+    //    navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    //}
+    </script>
+    <style>
+        * {
+            font-size: large;
+            font-family: monospace;
+        }
+
+        .container{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .calendar {
+            --background-color: lightgray;
+            width: 100%;
+        }
+
+        
+
+        @media (min-width: 600px) {
+            .calendar{
+                
+                max-width: 600px;
+            }
+        }
+
+        cal-day{
+            display: block;
+            margin-top: 0.4em;
+        }
+
+        cal-day.today{
+            display: block;
+            
+            outline-style: solid;
+            outline-color: rgb(176, 189, 248);
+            border-radius: 5px;
+        }
+        
+        
+    </style>
 </head>
 <body>
     <header>
-        <nav class="nav">
+        <!--nav class="nav">
             <a>settings</a>
             <a>search</a>
-        </nav>
+        </nav-->
     </header>
+
     <div class="container">
         <div class="calendar" id="cal">
         </div>
     </div>
 
     <template id="template-week">
+        <style>
+            .week {
+                height: 96vh;
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-start;
+                --background-color: aqua;
+            }
+        </style>
         <div class="week">
             <slot></slot>
         </div>
     </template>
 
     <template id="template-day">
-        <div class="display" style="display: flex; justify-content: space-between;">
+        <style>
+            .display {
+                display: flex;
+                flex-direction: row;
+                justify-content: space-between;
+                padding: 0.2em 0em;
+            }
+
+            ::slotted(.daynr) {
+                margin: 0em 0em 0em 0.6em;
+            }
+
+            ::slotted(.month) {
+                margin: 0em 0.6em 0em 0em;
+            }
+
+            
+        </style>
+        <div class="display">
             <slot name="weekday"></slot>
-            <slot name="month" style="float: right;margin-right: 0.4em;"></slot>
+            <slot name="month"></slot>
         </div>
         <div class="entries">
             <slot></slot>
         </div>
     </template>
 
-    <template id="template-entry">
-        <div>
-            <textarea id="" style="resize:none; field-sizing:content; width:100%;"></textarea>
+    <template id="template-input">
+        <style>
+            textarea {
+                resize:none;
+                field-sizing:content;
+                width:97%;
+
+                padding: 0.4em;
+                margin-top: 0.1em;
+                margin-left: 0.2em;
+            }
+
+            textarea:focus ~ .edit{
+                display: block;
+                color: blue;
+            }
+            
+            .edit{
+                display: none;
+            }
+
+            textarea#conflicted {
+                display: none;
+            }
+            
+        </style>
+        <div class="container" draggable="true">
+            <!--slot></slot-->
+            <textarea id="main"></textarea>
+            <!--textarea id="conflicted"></textarea-->
+            <!--div class="edit" >entry option</div-->
         </div>
     </template>
 </body>

@@ -1,45 +1,137 @@
 
-
-customElements.define(
-    "cal-week",
-    class extends HTMLElement{
-        constructor() {
-            super()
-            let week = document.querySelector("#template-week")
-            let shadow = this.attachShadow({mode:"open"})
-            shadow.appendChild(week.content.cloneNode(true))
-        }
+class CalWeek extends HTMLElement{
+    constructor() {
+        super()
+        let week = document.querySelector("#template-week")
+        let shadow = this.attachShadow({mode:"open"})
+        shadow.appendChild(week.content.cloneNode(true))
     }
-)
+}
 
-customElements.define(
-    "cal-day",
-    class extends HTMLElement{
-        constructor() {
-            super()
-            let day = document.querySelector("#template-day")
-            let shadow = this.attachShadow({mode:"open"})
-            shadow.appendChild(day.content.cloneNode(true))
-        }
+class CalDay extends HTMLElement{
+    constructor() {
+        super()
+        let day = document.querySelector("#template-day")
+        let shadow = this.attachShadow({mode:"open"})
+        shadow.appendChild(day.content.cloneNode(true))
     }
-)
+}
 
-customElements.define(
-    "cal-entry",
-    class extends HTMLElement{
-        constructor() {
-            super()
-            let entry = document.querySelector("#template-entry")
-            let shadow = this.attachShadow({mode:"open"})
-            shadow.appendChild(entry.content.cloneNode(true))
-        }
+class CalInput extends HTMLElement{
+    constructor() {
+        super()
+        let entry = document.querySelector("#template-input")
+        this.shadow = this.attachShadow({mode:"open"})
+        this.shadow.appendChild(entry.content.cloneNode(true))
+
+        this.manager = calendar.manager
+        this.eid = (Math.random() + 1).toString(36).substring(7)
+        let input = this.shadow.querySelector("div > textarea")
+        
+
+        input.addEventListener("input", (event) => {
+            let parent = event.target.parentNode.parentNode.host
+            
+            let entry = Entry.fromCalInput(parent)
+            this.debouncedCommit(entry)
+
+            if (event.target.value == ""){
+                parent.eid = undefined
+            }
+        })
+
+        input.addEventListener("focusin", (event) =>  {
+            if(event.target.value != "")
+                return
+
+            let day = event.target.parentNode.parentNode.host.parentNode
+            let input = calendar.populateEntry()
+            day.append(input)
+        })
+
+        input.addEventListener("focusout", (event) =>  {
+            let node =  event.target.parentNode.parentNode.host.parentNode
+            if(event.target.value == "")
+                node.lastChild.remove()
+        })
+        
+        this.addEventListener("dragstart", (event) => {
+            calendar.before = Entry.fromCalInput(event.target)
+            this.commitNow()
+
+            event.target.classList.add("dragging")
+        })
+
+        this.addEventListener("drop", (event) => {
+            event.preventDefault()
+            let elem = document.querySelector(".dragging")
+
+            let target = event.target.closest("cal-day")
+            target.appendChild(elem)
+
+            let after = Entry.fromCalInput(elem)
+            
+            this.commit(calendar.before.setContent(""))
+            this.commit(after)
+            calendar.before = undefined
+        })
+    
+        this.addEventListener("dragend", (event) => {
+            event.target.classList.remove("dragging")
+        })
+
+        this.addEventListener("dragover", (event) => {
+            event.preventDefault()
+        })
+
+        return this
     }
-)
 
-const dayCorrection = (d) => d + 6 % 7
+    debouncedCommit(entry){
+        this.tobecommit = entry
+
+        clearTimeout(this.timer)
+        this.timer = setTimeout(
+            () => {
+                this.commit(entry)
+                this.timer = undefined
+                this.entryToCommit = undefined
+            },
+            1000
+        )
+    }
+
+    commit(entry){
+        this.manager.commit(entry)
+    }
+
+    commitNow(){
+        clearTimeout(this.timer)
+        this.timer = undefined
+        if(this.tobecommit != undefined)
+            this.commit(this.tobecommit)
+
+        this.tobecommit = undefined
+    }
+}
+
+
+
+
+const dayCorrection = (d) => (d + 6) % 7
+
+class CalendarManager {
+    constructor(){
+        this.calendars = []
+    }
+
+    appendCalendar(calendar){
+        this.calendars.append(calendar)
+    }
+}
 
 class HTMLCalendar {
-    id
+    idcnt
     color
     name
     constructor() {
@@ -50,26 +142,78 @@ class HTMLCalendar {
         this.currentWeek.setDate(this.currentWeek.getDate() - this.currentWeek.getDay())
         
         this.weekOffset = 0
-
-        this.manager = new EntryManager()
+        this.current_weekdays = []
         this.populateWeek()
+
+        this.addControlInputHandlers()
+    }
+
+    dump() {
+        return this.manager.dump()
+    }
+
+    static async fetch(config){
+        let cal = new HTMLCalendar()
+        cal.manager = await Manager.fetch(config)
+        return cal
     }
 
     reset(){
         this.cal.innerHTML = ""
-        this.manager.reset()
+        this.current_weekdays = []
+        //this.manager.reset()
     }
 
-    prev() {
+    async prev() {
         this.reset()
         this.weekOffset -= 1
         this.populateWeek()
+        this.load()
     }
 
-    next() {
+    async next() {
         this.reset()
         this.weekOffset += 1
         this.populateWeek()
+        this.load()
+    }
+
+    async load(){
+        //console.log("load")
+        let promises = []
+        for (let dateid of this.current_weekdays){
+            
+            let batch = await this.manager.load(dateid)
+            promises.push(batch)
+        }
+        let res = await Promise.all(promises)
+
+        for (let batch of res){
+            for (let entry of batch) {
+                if (entry.cmd == "del")
+                    continue
+
+                let day = document.getElementById(entry.dateid)
+                let input = this.populateEntry()
+                input.eid = entry.id
+                input.shadowRoot.querySelector("textarea").value = entry.content
+                day.prepend(input)
+            }
+        }
+    }
+
+    async push(){
+        this.manager.push()
+    }
+
+    async fetch(){
+        await this.manager.fetch()
+        //await this.load()
+
+        this.reset()
+        
+        this.populateWeek()
+        this.load()
     }
 
     populateWeek(){
@@ -84,18 +228,29 @@ class HTMLCalendar {
     }
 
     populateDay(day, day_offset){
-        const months = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "nov", "Dez"]
+        const months = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
+        const days = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
         const curr = new Date()
         curr.setDate(curr.getDate() + this.weekOffset * 7 - dayCorrection(curr.getDay()) + day_offset);
         const dayid = HTMLCalendar.getDateId(curr)
         day.setAttribute("id", dayid)
 
+        if (HTMLCalendar.getDateId(curr) == HTMLCalendar.getDateId(new Date())){
+            day.classList.add("today")
+        }
+
+        this.current_weekdays.push(dayid)
+
         let weekday = document.createElement("p")
+        weekday.classList.add("daynr")
         weekday.setAttribute("slot", "weekday")
-        weekday.innerText = curr.getDate()
+
+        const wk = days[dayCorrection(curr.getDay())]
+        weekday.innerText = wk + " " + curr.getDate()
         day.appendChild(weekday)
 
         let month = document.createElement("p")
+        month.classList.add("month")
         month.setAttribute("slot", "month")
         month.innerText = curr.getDay() == 1 || curr.getDate() == 1? months[curr.getMonth()] : ""
         day.appendChild(month)
@@ -104,82 +259,51 @@ class HTMLCalendar {
     }
 
     populateEntry(){
-        let calentry = document.createElement("cal-entry")
-        const textarea = calentry.shadowRoot.querySelector("div > textarea")
-        let calendar = this
-
-        textarea.addEventListener("focusin", (event) => {
-            //console.log("(focusin)", event.target.value)
-            if(event.target.value == ""){
-                let dayelem = event.target.getRootNode().host.parentNode//.id
-                let elem = calendar.populateEntry()
-                dayelem.appendChild(elem)
-            }
-        })
-
-        textarea.addEventListener("focusout", (event) => {
-            console.log("focusout", event.target.value.trim())
-            if (event.target.value.trim() == ""){
-                event.target.remove()
-            }
-        })
-
-        textarea.addEventListener("input", (event) => {
-            console.log("(input): old_entry ",  event.target.old_entry)
-            let elem = event.target
-            //console.log(event.target.getRootNode().host.parentNode)//getRootNode().getRootNode().getRootNode())
-            
-            //console.log("(input) ", entry, elem)
-            if(elem.value == ""){
-                if (event.target.old_entry == undefined) {
-                    // stayed empty
-                    // do nothing
-                } else {
-                    calendar.manager.deleteEntry(event.target.old_entry)
-                    event.target.old_entry = undefined
-                }
-            } else {
-                
-                let entry = HTMLCalendar.entryFromElement(elem)
-                if (event.target.old_entry == undefined){
-                    // new element created
-                    calendar.manager.registerEntry(entry)
-                    // broatcast update
-                    calendar.manager.createEntry(entry)
-                    event.target.debouncer = debounce((old_entry, new_entry)=>{calendar.manager.updateEntry(old_entry, new_entry)}, 1000)
-                } else {
-                    // entry updated, broatcast update
-                    let old_old_entry = event.target.old_entry
-                    event.target.debouncer(old_old_entry, entry)
-                }
-                //event.target.old_entry = entry
-            }
-        })
+        let calentry = document.createElement("cal-input")
         return calentry
-    }
-
-    static entryFromElement(elem) {
-        let entry = new Entry().setDate(elem.getRootNode().host.parentNode.id)
-                               .setContent(elem.value)
-                               .setEndDate(null)
-                               .setRepeat(false)
-                               .build()
-        return entry
     }
 
     static getDateId(date){
         return `${1900 + date.getYear()}${(date.getMonth() + 1).toString().padStart(2, "0")}${date.getDate().toString().padStart(2, "0")}`
     }
-}
 
-function debounce(foo, timeout) {
-    let timer
-    return (...args)=>{
-        clearTimeout(timer)
-        timer = setTimeout(() => {
-            foo.apply(this, args)
-        }, timeout)
+    addControlInputHandlers() {
+
+        this.startX = undefined
+
+        addEventListener('touchstart', (e) => {
+            this.startX = e.touches[0].clientX
+        })
+
+        addEventListener('touchend', (e) => {
+            const endX = e.changedTouches[0].clientX
+            const swipeThreshold = 50
+
+            if (endX - this.startX > swipeThreshold) {
+                calendar.prev()
+            } else if (this.startX - endX > swipeThreshold) {
+                calendar.next()
+            } else {
+                //alert('Swipe too short!');
+            }
+            this.startX=undefined
+        })
+
+        addEventListener("keyup", (event) => {
+            if(!event.ctrlKey) return
+            switch (event.key) {
+                case "ArrowLeft":
+                    this.prev()
+                    break;
+                case "ArrowRight":
+                    this.next()
+                    break;
+                default:
+                    break;
+            }
+        })
     }
+
 }
 
 class Entry {
@@ -188,6 +312,9 @@ class Entry {
     end_date = undefined
     content = undefined
     repeat = undefined
+    pos = undefined
+
+    version = undefined
 
     setDate(date){
         this.date = date
@@ -216,143 +343,139 @@ class Entry {
         return str.split("").map((c, i) => c.charCodeAt() * (p**i) % m).reduce((a, v)=> a+v % m)
     }
 
+    setId(id){
+        this.id = id
+        return this
+    }
+
+    setVersion(v){
+        this.version = v
+        return this
+    }
+
+    setUpdate(){
+        this.cmd = "put"
+        return this
+    }
+
+    setDelete(){
+        this.cmd = "del"
+        return this
+    }
+
     build() {
-        this.id = Entry.hash(this.content)
+        //this.id = Entry.hash(this.content)
+        
         return this
     }
     
     repr() {
         return {
             id: this.id,
-            date: this.date,
+            dateid: this.date,
             end_date: this.end_date,
             content: this.content,
-            repeat: this.repeat
+            repeat: this.repeat,
+            version: this.version,
+            cmd: this.cmd,
         }
     }
 
-    fromRepr(repr){
-        let loaded = new CalendarEntry().setDate(repr.date)
+    static fromCalInput(elem) {
+        let ta = elem.shadowRoot.querySelector("textarea")
+        let entry = new Entry().setDate(elem.parentNode.id)
+                               .setContent(ta.value)
+                               .setEndDate(null)
+                               .setRepeat(false)
+                               .setId(elem.eid)
+                               .setVersion(null)
+                               .build()  
+      
+        return entry
+    }
+
+    static fromRepr(repr){
+        let loaded = new Entry().setDate(repr.dateid)
                                   .setEndDate(repr.end_date)
                                   .setContent(repr.content)
                                   .setRepeat(repr.repeat)
-                                  .build()//repr.id)
-        if (loaded.id != repr.id) {
-            console.error("not the same ids")
-        }
+                                  .setId(repr.id)
+                                  .build()//repr.id) // TODO used?
         return loaded
     }
 
-    fromAttributes(dateid, end_date, content, repeat){
+    fromAttributes(id, dateid, end_date, content, repeat){
         return new CalendarEntry().setDate(dateid)
                                   .setEndDate(end_date)
                                   .setContent(content)
                                   .setRepeat(repeat)
-                                  .build()
+                                  .setId(id)
+                                  .build() // TOD used=
     }
 }
 
-class HTMLCalendarEntryBuilder{
-    constructor() {
 
+
+
+
+class Manager {
+    static async fetch(config){
+        let mngr = new Manager()
+        mngr.storageLocal = await StorageLocal.fetch()
+        mngr.storageServer = new StorageServer(config)
+        return mngr
     }
 
-    build(){
-        return this
-    }
-}
-
-class Command {
-    static changes = []
-
-    constructor(name, foo, unfoo) {
-        this.foo = foo
-        this.unfoo = unfoo
-    }
-
-    execute() {
-        this.foo()
-        Command.changes.push(this)
-    }
-
-    rollback() {
-
-    }
-}
-
-function addEntry(){
-    return Command("add", )
-}
-
-
-class EntryManager {
     constructor(){
-        this.observer = new StorageObserver()
-        this.storageServer = new StorageServer()
-        this.storageLocal = new StorageLocal()
+        this.version = 0
+        this.cid = "temp"
     }
 
-    createEntry(entry) {
-        // receive new entry from View
-        // write new entry to local storage, write to changelog for the server
-        
-        console.log("new Entry")
+    dump(){
+        return this.storageLocal.dump()
     }
 
-    updateEntry(old, entry) {
-        // receive new entry from View
-        // write updates from entry to local storage and to changelog for the server
-        console.log("update Entry", old, entry)
+    commit(entry){
+        console.log("commit", entry)
+        entry.setVersion(this.version)
+        if (entry.content == "") {
+            this.storageLocal.insert(entry.setDelete())
+            //this.storageLocal.delete(entry)
+        } else {
+            this.storageLocal.insert(entry.setUpdate())
+        }
     }
 
-    deleteEntry() {
-        // receive entry deletion from View
-        // write del entry to local storage and to changelog for the server
-        console.log("delete Entry")
-    }
-    
-    registerEntry(entry){
-        // register entry
-        // so on receive change from server aka fetch
-        // entry can be updated, if entry exists
+    async load(dateid){
+        return this.storageLocal.load(dateid)
     }
 
-    registerDay(id) {
-        // register entry
-        // so on receive change from server aka fetch
-        // entry can be created, if entry does not exists yet
-    }
-
-    reset() {
-        // reset registered entries, since they do not need to be upadted when not displayed
-    }
-
-    fetch() {
+    async fetch() {
         // fetch data from server
-        // notify registered entries and days
         // write changes to localstorage
+
+        let updates = await this.storageServer.fetch(this.cid, this.version)
+
+        //let batch = await this.manager.fetch()
+        
+        for (let set of updates){
+            for (let entry of set) {
+                console.log(entry)
+                this.storageLocal.insert(Entry.fromRepr(entry))
+            }
+        }
     }
 
-    push() {
+    async push() {
         // send changelog to server
+        let delta = await this.storageLocal.deltas(this.version)
+        console.log(delta)
+        return this.storageServer.push(delta, this.cid, this.version)
     }
 }
-
-class StorageObserver {
-    constructor() {}
-
-    registerCallback(id, foo){
-
-    }
-
-    notify() {
-
-    }
-}
-
 
 class StorageLocal {
-    static async fetchStorageLocal() {
+    static async fetch() {
         let storage = new StorageLocal()
         await storage.init()
         return storage
@@ -360,86 +483,192 @@ class StorageLocal {
 
     init(){
         const request = window.indexedDB.open("calendar", 1)
-        request.onupgradeneeded = (event) => {
-            this.db = event.target.result
-            const store = this.db.createObjectStore("appointments", {autoincrement: false})
+        return new Promise((resolve, reject) => {
+                request.onupgradeneeded = (event) => {
+                this.db = event.target.result
+                const store = this.db.createObjectStore("appointments", {keyPath: "id"})
 
-            store.createIndex("dateIndex", "dateid", {unique:false, multiEntry:true})
-            store.createIndex("entryIndex", {unique:false, multiEntry:true})
+                store.createIndex("dateIndex", "dateid", {unique:false, multiEntry:true})
+                store.createIndex("entryIndex", "id", {unique:true})
+                store.createIndex("versionIndex", "version", {unique:false, multiEntry:true})
 
-            this.db.createObjectStore("keyvalue", {keyPath: "key"})
-        }
+                this.db.createObjectStore("keyvalue", {keyPath: "key"})
+            }
 
-        request.onsuccess = (event) => {
-            this.db = event.target.result
-            resolve(request.result)
-        }
+            request.onsuccess = (event) => {
+                this.db = event.target.result
+                resolve(request.result)
+            }
 
-        request.onerror = (event) => {
-            PromiseRejectionEvent(event.target.error)
-        }
-        return this
+            request.onerror = (event) => {
+                PromiseRejectionEvent(event.target.error)
+            }})
     }
 
     insert(entry) {
         return new Promise((resolve, reject) => {
-            const tnx = this.db.transaction(["appointments"], "readonly")
-            tnx.onerror = (event) => reject(event.tergat.error)
+            const tnx = this.db.transaction(["appointments"], "readwrite")
+            tnx.onerror = (event) => reject(event.target.error)
             const store = tnx.objectStore("appointments")
-            const res = store.add(entry.repr())
+            const res = store.put(entry.repr())
             
             res.onsuccess = () => resolve(res.result)
             res.onerror = (event) => reject(event.target.error)
         })
     }
 
-    load(entry) {
+    load(dateid) {
         return new Promise((resolve, reject) => {
             const tnx = this.db.transaction(["appointments"], "readonly")
-            tnx.error = (event) => reject(event.target.error)
+            tnx.onerror = (event) => reject(handleError(event.target.error))
             const store = tnx.objectStore("appointments")
             const index = store.index("dateIndex")
-            const results = []
-            const request = index.openCursor(IDBKeyRange.only(dateid))
-
+            
+            const request = index.getAll(IDBKeyRange.only(dateid))
             request.onsuccess = (event) => {
-                const cursor = event.target.result
-                if(cursor) {
-                    results.push(cursor.value)
-                    cursor.continue()
-                } else {
-                    resolve(results)
-                }
+                resolve(request.result)
             }
-
-            request.onerror = (event) => reject(event.target.error)
+            request.onerror = (event) => reject(handleError(event.target.error))
         })
     }
 
     delete(entry) {
-
+        return new Promise((resolve, reject) => {
+            const tnx = this.db.transaction(["appointments"], "readwrite")
+            tnx.onerror = (event) => reject(event.target.error)
+            const store = tnx.objectStore("appointments")
+            const res = store.delete(entry.id)
+            
+            res.onsuccess = () => resolve(res.result)
+            res.onerror = (event) => reject(event.target.error)
+        })
     }
 
-    update(entry) {
+    deltas(version){
+        return new Promise((resolve, reject) => {
+            const tnx = this.db.transaction(["appointments"], "readonly")
+            tnx.onerror = (event) => reject(handleError(event.target.error))
+            const store = tnx.objectStore("appointments")
+            const index = store.index("dateIndex")
+            
+            const request = index.getAll(IDBKeyRange.lowerBound(version))
+            request.onsuccess = () => {
+                resolve(request.result)
+            }
+            request.onerror = (event) => reject(handleError(event.target.error))
+        })
+    }
 
+    dump(){
+        return new Promise((resolve, reject) => {
+            const tnx = this.db.transaction(["appointments"], "readonly")
+            tnx.onerror = event => reject(handleError(event.target.error))
+            const store = tnx.objectStore("appointments")
+            const values = []
+            const cursor = store.openCursor()
+
+            cursor.onerror = (event) => reject(handleError(event.target.error))
+            cursor.onsuccess = (event) => {
+                const cur = event.target.result
+                if (cur) {
+                    values.push(cur.value)
+                    cur.continue()
+                } else {
+                    resolve(values)
+                }
+            }
+        })
+    }
+}
+
+function handleError(error){
+    console.log("Error", error)
+}
+
+class Config {
+    constructor(){
+        this.scheme = "http"
+        this.domain = "http://localhost"
+        this.port = 5000
+    }
+
+    load(){
+        // TODO load from config file
+    }
+
+    setServer(domain, port){
+        this.domain = domain
+        this.port = port
+        return this
+    }
+
+    getURL(){
+        let url = new URL(this.domain)
+        url.port = this.port
+        return url
     }
 }
 
 class StorageServer {
-    constructor() {}
-
-    fetch(){
-
+    constructor(config) {
+        this.config = config
     }
 
-    push() {
+    createUrl(cid, version){
+        let url = this.config.getURL()
+        url.pathname = `${cid}/${version}`
+        return url
+    }
 
+    async fetch(cid, version){
+        let url = this.createUrl(cid, version)
+        let data = null
+        //console.log("fetch", url.toString())
+        await fetch(url, {
+            method: "GET",
+            cache: 'no-store',
+            //headers:{},
+            //body:""
+        }).then((resp)=>{
+            data = resp.json()
+        }).catch((err)=>console.log(err))
+        
+        return data
+    }
+
+    async push(delta, cid, version) {
+        let url = this.createUrl(cid, version)
+        
+        let r = fetch(url,  {
+            method: "POST",
+            //headers:{},
+            body:JSON.stringify(delta),
+            cache: 'no-store'
+        })
+        .then((data) => {
+            return data
+        }).catch((err)=>console.log(err))
+        
+        /*const res = await fetch(url, {
+            method: "POST",
+            //headers:{},
+            body:delta
+        })
+
+        return await res.json()*/
     }
 }
 
 
 let calendar = undefined
-function main() {
-    calendar = new HTMLCalendar()
+async function main() {
+    let config = new Config()
+    calendar = await HTMLCalendar.fetch(config)
+
+    customElements.define("cal-week",CalWeek)
+    customElements.define("cal-day", CalDay)
+    customElements.define("cal-input", CalInput)
+
+    calendar.load()
 }
 main()
