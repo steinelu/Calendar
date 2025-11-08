@@ -66,13 +66,20 @@ class CalInput extends HTMLElement{
             event.preventDefault()
             let elem = document.querySelector(".dragging")
 
-            let target = event.target.closest("cal-day")
-            target.appendChild(elem)
-
-            let after = Entry.fromCalInput(elem)
+            let day = event.target.closest("cal-day")
+            let prev = event.target.closest("cal-input")
+            prev.before(elem)
             
             this.commit(calendar.before.setContent(""))
-            this.commit(after)
+            
+            let childs = day.querySelectorAll("cal-input")
+            
+
+            for (let input of [...childs]) {
+                console.log(input)
+                let elem = Entry.fromCalInput(input)
+                this.commit(elem)
+            }
             calendar.before = undefined
         })
     
@@ -112,6 +119,13 @@ class CalInput extends HTMLElement{
             this.commit(this.tobecommit)
 
         this.tobecommit = undefined
+    }
+
+    calculatePosition(){
+        //console.log(this)
+        const pos = [...this.shadowRoot.host.parentNode.children].indexOf(this)
+        //console.log(pos)
+        return pos
     }
 }
 
@@ -189,14 +203,15 @@ class HTMLCalendar {
         let res = await Promise.all(promises)
 
         for (let batch of res){
-            for (let entry of batch) {
+
+            for (let entry of batch.sort((a, b)=>b.pos - a.pos)) {
                 if (entry.cmd == "del")
                     continue
 
-                let day = document.getElementById(entry.dateid)
                 let input = this.populateEntry()
                 input.eid = entry.id
                 input.shadowRoot.querySelector("textarea").value = entry.content
+                let day = document.getElementById(entry.dateid)
                 day.prepend(input)
             }
         }
@@ -336,6 +351,11 @@ class Entry {
         return this
     }
 
+    setPos(pos){
+        this.pos = pos
+        return this
+    }
+
     static hash(str) {
         const p = 821
         const m = 433024223
@@ -378,6 +398,7 @@ class Entry {
             repeat: this.repeat,
             version: this.version,
             cmd: this.cmd,
+            pos: this.pos,
         }
     }
 
@@ -389,7 +410,8 @@ class Entry {
                                .setRepeat(false)
                                .setId(elem.eid)
                                .setVersion(null)
-                               .build()  
+                               .setPos(elem.calculatePosition())
+                               .build()
       
         return entry
     }
@@ -400,9 +422,11 @@ class Entry {
                                   .setContent(repr.content)
                                   .setRepeat(repr.repeat)
                                   .setId(repr.id)
+                                  .setPos(repr.pos)
                                   .build()//repr.id) // TODO used?
         return loaded
     }
+
 
     fromAttributes(id, dateid, end_date, content, repeat){
         return new CalendarEntry().setDate(dateid)
@@ -436,7 +460,7 @@ class Manager {
     }
 
     commit(entry){
-        console.log("commit", entry)
+        //console.log("commit", entry)
         entry.setVersion(this.version)
         if (entry.content == "") {
             this.storageLocal.insert(entry.setDelete())
