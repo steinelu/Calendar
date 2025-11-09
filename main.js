@@ -36,13 +36,13 @@ class CalInput extends HTMLElement{
             let entry = Entry.fromCalInput(parent)
             this.debouncedCommit(entry)
 
-            if (event.target.innerText == ""){
-                parent.eid = undefined
-            }
+            //if (event.target.innerText.trim() == ""){
+                //parent.eid = undefined
+            //}
         })
 
         input.addEventListener("focusin", (event) =>  {
-            if(event.target.innerText != "")
+            if(event.target.innerText.trim() != "")
                 return
 
             let day = event.target.parentNode.parentNode.host.parentNode
@@ -52,8 +52,11 @@ class CalInput extends HTMLElement{
 
         input.addEventListener("focusout", (event) =>  {
             let node =  event.target.parentNode.parentNode.host.parentNode
-            if(event.target.innerText == "")
+            
+            //console.log(node.lastChild, event.target.innerText.trim())
+            if(event.target.innerText.trim() == "")
                 node.lastChild.remove()
+            
             this.commitNow()
             this.handleColor()
         })
@@ -68,13 +71,13 @@ class CalInput extends HTMLElement{
         this.addEventListener("drop", (event) => {
             event.preventDefault()
             let elem = document.querySelector(".dragging")
-
+            this.handleColor()
             let day = event.target.closest("cal-day")
             let prev = event.target.closest("cal-input")
             prev.before(elem)
             
             this.commit(calendar.before.setContent(""))
-            this.handleColor()
+            
             
             let childs = day.querySelectorAll("cal-input")
             
@@ -112,6 +115,7 @@ class CalInput extends HTMLElement{
     }
 
     commit(entry){
+        //console.log(entry, this)
         this.manager.commit(entry)
     }
 
@@ -136,11 +140,11 @@ class CalInput extends HTMLElement{
 
     handleColor(){
         let input = this.shadowRoot.getElementById("inputfield")
-        let pattern = /(#[0-9a-fA-F]{6})\b/g
+        let pattern = /(#[0-9a-fA-F]{3,6})\b/g
         let walker = document.createTreeWalker(input, NodeFilter.SHOW_TEXT)
         
-        let selection = document.getSelection()
-        console.log(selection)
+        //let selection = document.getSelection()
+        
         //let cursorpos = selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
 
         let node = walker.nextNode()
@@ -286,6 +290,7 @@ class HTMLCalendar {
                 input.eid = entry.id
                 //input.shadowRoot.querySelector("textarea"). = entry.content
                 input.shadowRoot.getElementById("inputfield").innerText = entry.content
+                
                 input.handleColor()
                 let day = document.getElementById(entry.dateid)
                 day.prepend(input)
@@ -546,9 +551,8 @@ class Manager {
     }
 
     commit(entry){
-        //console.log("commit", entry)
         entry.setVersion(this.version)
-        if (entry.content == "") {
+        if (entry.content.trim() == "") {
             this.storageLocal.insert(entry.setDelete())
             //this.storageLocal.delete(entry)
         } else {
