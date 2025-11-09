@@ -53,6 +53,7 @@ class CalInput extends HTMLElement{
             let node =  event.target.parentNode.parentNode.host.parentNode
             if(event.target.value == "")
                 node.lastChild.remove()
+            this.commitNow()
         })
         
         this.addEventListener("dragstart", (event) => {
@@ -76,7 +77,6 @@ class CalInput extends HTMLElement{
             
 
             for (let input of [...childs]) {
-                console.log(input)
                 let elem = Entry.fromCalInput(input)
                 this.commit(elem)
             }
@@ -127,6 +127,11 @@ class CalInput extends HTMLElement{
         //console.log(pos)
         return pos
     }
+
+    disconnectedCallback() {
+        //console.log('Custom element removed from DOM');
+        this.commitNow()
+    } 
 }
 
 
@@ -148,6 +153,7 @@ class HTMLCalendar {
     idcnt
     color
     name
+
     constructor() {
         this.cal = document.getElementById("cal")
     

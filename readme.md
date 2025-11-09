@@ -21,8 +21,7 @@ features
 
 
 Todo
-- Bugs
-    -
+
 - sync -> REST API API -> settings with what to execute on _______
     - choose your own backend
 - share
@@ -30,3 +29,15 @@ Todo
 - Overview (i.e. Month)
 - Dump / Load
 - sync online
+- tags
+    - '@name'
+    - '#0f3' -> color of cell
+    - '/strid' -> ?
+    -- change textarea to div editable
+
+Bugs
+- on fast closing, last input are not saved
+- if memory is full browser deletes storage!!!
+    - use opfs as backup + make download available of backup
+- PWA on some browsers more bugy
+    - make sure that Chrome, Edge and Firefox work 
