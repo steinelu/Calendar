@@ -103,52 +103,54 @@
                 margin: 0em 0.6em 0em 0em;
             }
 
+            .entries {
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                gap: 0.8rem;
+            }
+
             
         </style>
         <div class="display">
             <slot name="weekday"></slot>
             <slot name="month"></slot>
         </div>
-        <div class="entries">
-            <slot></slot>
+        <div>
+            <slot class="entries"></slot>
         </div>
     </template>
 
     <template id="template-input">
         <style>
-            div {
-                padding-right: 0.7em;
+            .container{
+                outline-style: solid;
+                outline-width: 1px;
+                outline-color: black;
             }
 
-            textarea {
+            div {
+                --padding-right: 0.7em;
+            }
+
+            #inputfield {
                 resize:none;
                 field-sizing:content;
-                width:100%;
-                --box-sizing: border-box;
+                width:auto;
+                box-sizing: border-box;
                 font-size: large;
-                
-                margin-top: 0.1em;
-                margin-left: 0.2em;
-                padding: 0.3em;
-            }
-
-            textarea:focus ~ .edit{
-                display: block;
-                color: blue;
+                padding: 0.4em;
             }
             
-            .edit{
-                display: none;
-            }
-
-            textarea#conflicted {
-                display: none;
+            span.colored {
+                border-radius: 25%;
+                padding: 0.2em;
             }
             
         </style>
         <div class="container" draggable="true">
             <!--slot></slot-->
-            <textarea id="inputfield"></textarea>
+            <div contenteditable="true" id="inputfield"></textarea>
             <!--textarea id="conflicted"></textarea-->
             <!--div class="edit" >entry option</div-->
         </div>

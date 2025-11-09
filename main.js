@@ -26,22 +26,23 @@ class CalInput extends HTMLElement{
 
         this.manager = calendar.manager
         this.eid = (Math.random() + 1).toString(36).substring(7)
-        let input = this.shadow.querySelector("div > textarea")
+        let input = this.shadow.querySelector("div > #inputfield")
         
 
         input.addEventListener("input", (event) => {
+            this.handleColor()
             let parent = event.target.parentNode.parentNode.host
             
             let entry = Entry.fromCalInput(parent)
             this.debouncedCommit(entry)
 
-            if (event.target.value == ""){
+            if (event.target.innerText == ""){
                 parent.eid = undefined
             }
         })
 
         input.addEventListener("focusin", (event) =>  {
-            if(event.target.value != "")
+            if(event.target.innerText != "")
                 return
 
             let day = event.target.parentNode.parentNode.host.parentNode
@@ -51,7 +52,7 @@ class CalInput extends HTMLElement{
 
         input.addEventListener("focusout", (event) =>  {
             let node =  event.target.parentNode.parentNode.host.parentNode
-            if(event.target.value == "")
+            if(event.target.innerText == "")
                 node.lastChild.remove()
             this.commitNow()
         })
@@ -110,6 +111,7 @@ class CalInput extends HTMLElement{
 
     commit(entry){
         this.manager.commit(entry)
+        this.handleColor()
     }
 
     commitNow(){
@@ -122,16 +124,73 @@ class CalInput extends HTMLElement{
     }
 
     calculatePosition(){
-        //console.log(this)
         const pos = [...this.shadowRoot.host.parentNode.children].indexOf(this)
-        //console.log(pos)
         return pos
     }
 
     disconnectedCallback() {
-        //console.log('Custom element removed from DOM');
         this.commitNow()
-    } 
+    }
+
+
+    handleColor(){
+        let input = this.shadowRoot.getElementById("inputfield")
+        let pattern = /(#[0-9a-fA-F]{6})\b/g
+        let walker = document.createTreeWalker(input, NodeFilter.SHOW_TEXT)
+
+        let node = walker.nextNode()
+
+        let matches = []
+
+        while(node) {
+            //console.log(node, node.nodeValue)
+            let text = node.nodeValue
+            console.log(node, node.nodeValue)
+
+            let m = [...text.matchAll(pattern)]
+            m.forEach(match=>{
+                matches.push({
+                    node,
+                    start: match.index,
+                    end: match.index + match[1].length,
+                    color:match[1]
+                })
+            })
+
+            node = walker.nextNode()
+        }
+
+        matches.reverse().forEach(({node, start, end, color}) => {
+            
+            let range = document.createRange()
+            range.setStart(node, start)
+            range.setEnd(node, end)
+
+            let span = document.createElement("span")
+            span.textContent = color
+            span.style.backgroundColor = color
+
+            range.deleteContents()
+            range.insertNode(span)
+        })
+        
+        /*
+        let node = input.firstChild
+        console.log(node)
+
+        while ((match = x.exec(input.textContent)) !== null) {
+            let range = document.createRange()
+            range.setStart(node, match.index)
+            range.setEnd(node, match.index + match[1].length)
+
+            let span = document.createElement("span")
+            span.style.backgroundColor = match[1]
+            span.textContent = match[1]
+
+            range.deleteContents()
+            range.insertNode(span)
+        }*/
+    }
 }
 
 
@@ -214,9 +273,11 @@ class HTMLCalendar {
                 if (entry.cmd == "del")
                     continue
 
-                let input = this.populateEntry()
+                let input = this.populateEntry() // TODO make it nice , purt stuff in func
                 input.eid = entry.id
-                input.shadowRoot.querySelector("textarea").value = entry.content
+                //input.shadowRoot.querySelector("textarea"). = entry.content
+                input.shadowRoot.getElementById("inputfield").innerText = entry.content
+                input.handleColor()
                 let day = document.getElementById(entry.dateid)
                 day.prepend(input)
             }
@@ -409,9 +470,10 @@ class Entry {
     }
 
     static fromCalInput(elem) {
-        let ta = elem.shadowRoot.querySelector("textarea")
+        //let ta = elem.shadowRoot.querySelector("textarea")
+        let ta = elem.shadowRoot.getElementById("inputfield")
         let entry = new Entry().setDate(elem.parentNode.id)
-                               .setContent(ta.value)
+                               .setContent(ta.innerText)
                                .setEndDate(null)
                                .setRepeat(false)
                                .setId(elem.eid)
@@ -461,8 +523,17 @@ class Manager {
         this.cid = "temp"
     }
 
-    dump(){
-        return this.storageLocal.dump()
+    async dump(){
+        let hist = await this.storageLocal.dump()
+        let H = []
+        for (let h of hist) {
+            if (h.cmd != "del") {
+                H.push(h)
+            }
+        }
+        let j = JSON.stringify(H, null, 4)
+        let b = new Blob([j], {type:"application/json"})
+        return b
     }
 
     commit(entry){
@@ -603,6 +674,7 @@ class StorageLocal {
                 if (cur) {
                     values.push(cur.value)
                     cur.continue()
+                    
                 } else {
                     resolve(values)
                 }
