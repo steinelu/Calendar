@@ -30,7 +30,7 @@ class CalInput extends HTMLElement{
         
 
         input.addEventListener("input", (event) => {
-            this.handleColor()
+            //this.handleColor()
             let parent = event.target.parentNode.parentNode.host
             
             let entry = Entry.fromCalInput(parent)
@@ -55,6 +55,7 @@ class CalInput extends HTMLElement{
             if(event.target.innerText == "")
                 node.lastChild.remove()
             this.commitNow()
+            this.handleColor()
         })
         
         this.addEventListener("dragstart", (event) => {
@@ -73,6 +74,7 @@ class CalInput extends HTMLElement{
             prev.before(elem)
             
             this.commit(calendar.before.setContent(""))
+            this.handleColor()
             
             let childs = day.querySelectorAll("cal-input")
             
@@ -111,7 +113,6 @@ class CalInput extends HTMLElement{
 
     commit(entry){
         this.manager.commit(entry)
-        this.handleColor()
     }
 
     commitNow(){
@@ -137,6 +138,10 @@ class CalInput extends HTMLElement{
         let input = this.shadowRoot.getElementById("inputfield")
         let pattern = /(#[0-9a-fA-F]{6})\b/g
         let walker = document.createTreeWalker(input, NodeFilter.SHOW_TEXT)
+        
+        let selection = document.getSelection()
+        console.log(selection)
+        //let cursorpos = selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
 
         let node = walker.nextNode()
 
@@ -145,7 +150,6 @@ class CalInput extends HTMLElement{
         while(node) {
             //console.log(node, node.nodeValue)
             let text = node.nodeValue
-            console.log(node, node.nodeValue)
 
             let m = [...text.matchAll(pattern)]
             m.forEach(match=>{
@@ -173,6 +177,11 @@ class CalInput extends HTMLElement{
             range.deleteContents()
             range.insertNode(span)
         })
+
+        // if (cursorpos) {
+        //     selection.removeAllRanges();
+        //     selection.addRange(cursorpos);
+        // }
         
         /*
         let node = input.firstChild
